@@ -1,5 +1,5 @@
-import {NativeRandom,NativeStateTimer,NativeTimeCounter,counterContains} from './native.js';
-import {children,properties,scalar} from './definitions.js';
+import {NativeRandom,NativeStateTimer,NativeTimeCounter,counterContains} from './native.js?v=2f94353fbe10d5bf';
+import {children,properties,scalar} from './definitions.js?v=2f94353fbe10d5bf';
 
 const number=(a,k,d=0)=>a[k]===undefined?d:Number(a[k]);
 const strategies=node=>children(node,'Strategies').flatMap(n=>n.c);

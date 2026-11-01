@@ -1,8 +1,8 @@
-import {children,descendants,properties,values} from './definitions.js';
-import {StrategyWorld} from './strategies.js';
-import {NativeMask,firePositions,collisionEvents} from './spatial.js';
-import {NativeGridMotion,NativeFireClock,NativeTimedFire} from './native.js';
-import {NativeEnemyAI} from './ai.js';
+import {children,descendants,properties,values} from './definitions.js?v=2f94353fbe10d5bf';
+import {StrategyWorld} from './strategies.js?v=2f94353fbe10d5bf';
+import {NativeMask,firePositions,collisionEvents} from './spatial.js?v=2f94353fbe10d5bf';
+import {NativeGridMotion,NativeFireClock,NativeTimedFire} from './native.js?v=2f94353fbe10d5bf';
+import {NativeEnemyAI} from './ai.js?v=2f94353fbe10d5bf';
 
 const strategies=n=>children(n,'Strategies').flatMap(n=>n.c);
 const normalize=p=>p.replaceAll('\\','/').toLowerCase();

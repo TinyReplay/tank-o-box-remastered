@@ -1,8 +1,9 @@
+import {assetURL} from './resources.js?v=2f94353fbe10d5bf';
 const pathKey=path=>path.replaceAll('\\','/').toLowerCase().replace(/(?:\.xm)?$/,'.xm');
 export function loopPosition(position,start,end){return position<end?Math.max(0,position):start+(position-start)%(end-start);}
 
 export class GameMusic {
- constructor(context,{muted=()=>false,worker=()=>new Worker(new URL('./music-worker.js',import.meta.url))}={}){
+ constructor(context,{muted=()=>false,worker=()=>new Worker(new URL('./music-worker.js?v=2f94353fbe10d5bf',import.meta.url))}={}){
   Object.assign(this,{context,isMuted:muted,createWorker:worker});this.cache=new Map();this.pending=new Map();this.requests=new Map();this.positions=new Map();this.nextId=1;this.revision=0;this.path=null;this.source=null;this.loading=false;this.disposed=false;
  }
  decoder(){if(!this.worker){this.worker=this.createWorker();this.worker.onmessage=({data})=>{const request=this.requests.get(data.id);if(!request)return;this.requests.delete(data.id);if(data.error)request.reject(Error(data.error));else request.resolve(data.result);};this.worker.onerror=event=>{for(const request of this.requests.values())request.reject(Error(event.message??'XM worker failed'));this.requests.clear();};}return this.worker;}
@@ -10,7 +11,7 @@ export class GameMusic {
   if(this.cache.has(path)){const cached=this.cache.get(path);this.cache.delete(path);this.cache.set(path,cached);return cached;}
   if(this.pending.has(path))return this.pending.get(path);
   const promise=(async()=>{
-   const response=await fetch('assets/'+path);if(!response.ok)throw Error('Original music not found: '+path);const bytes=await response.arrayBuffer();if(this.disposed)throw Error('Music session ended');
+   const response=await fetch(assetURL('assets/'+path));if(!response.ok)throw Error('Original music not found: '+path);const bytes=await response.arrayBuffer();if(this.disposed)throw Error('Music session ended');
    const id=this.nextId++,decoded=await new Promise((resolve,reject)=>{this.requests.set(id,{resolve,reject});this.decoder().postMessage({id,bytes},[bytes]);});
    if(this.disposed)throw Error('Music session ended');const context=this.context(),buffer=context.createBuffer(2,decoded.left.length,decoded.sampleRate);buffer.copyToChannel(decoded.left,0);buffer.copyToChannel(decoded.right,1);
    const result={buffer,duration:decoded.duration,loopStart:decoded.loopStart};this.cache.set(path,result);while(this.cache.size>2)this.cache.delete(this.cache.keys().next().value);return result;

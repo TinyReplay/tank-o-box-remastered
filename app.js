@@ -1,19 +1,19 @@
 import * as T from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {NativeMask,NativeField} from './engine/spatial.js';
-import {DefinitionRepository,children} from './engine/definitions.js';
-import {nativePlacement,NativeDirectionInput,nativeEulerMatrix} from './engine/presentation.js';
-import {NativeMissionPreview,animationTracks,animationCommands} from './engine/mission.js';
-import {GameAudio} from './engine/audio.js';
-import {FrameProfiler} from './engine/profiler.js';
-import {PointLightPool} from './engine/lighting.js';
-import {BitmapText} from './engine/text.js';
-import {InterfaceFlow,LocalProfile,resourcePath} from './engine/interface.js';
-import {ScreenControls,presentation} from './engine/controls.js';
-import {GameDevices} from './engine/devices.js';
-import {GameMusic} from './engine/music.js';
-import {loading,loaded as finishLoading} from './engine/loading.js';
-import {prepareResources,bundledResource,textureURL} from './engine/resources.js';
+import {NativeMask,NativeField} from './engine/spatial.js?v=2f94353fbe10d5bf';
+import {DefinitionRepository,children} from './engine/definitions.js?v=2f94353fbe10d5bf';
+import {nativePlacement,NativeDirectionInput,nativeEulerMatrix} from './engine/presentation.js?v=2f94353fbe10d5bf';
+import {NativeMissionPreview,animationTracks,animationCommands} from './engine/mission.js?v=2f94353fbe10d5bf';
+import {GameAudio} from './engine/audio.js?v=2f94353fbe10d5bf';
+import {FrameProfiler} from './engine/profiler.js?v=2f94353fbe10d5bf';
+import {PointLightPool} from './engine/lighting.js?v=2f94353fbe10d5bf';
+import {BitmapText} from './engine/text.js?v=2f94353fbe10d5bf';
+import {InterfaceFlow,LocalProfile,resourcePath} from './engine/interface.js?v=2f94353fbe10d5bf';
+import {ScreenControls,presentation} from './engine/controls.js?v=2f94353fbe10d5bf';
+import {GameDevices} from './engine/devices.js?v=2f94353fbe10d5bf';
+import {GameMusic} from './engine/music.js?v=2f94353fbe10d5bf';
+import {loading,loaded as finishLoading,installLoadingView,disposeLoadingView} from './engine/loading.js?v=2f94353fbe10d5bf';
+import {prepareResources,bundledResource,textureURL} from './engine/resources.js?v=2f94353fbe10d5bf';
 const debugMode=new URLSearchParams(location.search).get('debug')==='1';
 document.body.classList.toggle('debug',debugMode);
 const profile=new LocalProfile(localStorage);
@@ -100,9 +100,11 @@ async function startBattle(){
  if(movementPreview){await load();return;}
  const button=document.querySelector('#motion');let id=revision;button.disabled=true;
  try{
-  await audio.unlock();if(id!==revision)return;
+  // AudioContext.resume may remain pending until a browser accepts a gesture.
+  // Mission creation and spawning must never depend on this permission promise.
+  audio.ensureContext();audio.unlock().catch(reportAudioError);if(id!==revision)return;
   if(debugMode&&!document.querySelector('#scene').value.endsWith('.level')){document.querySelector('#scene').value='data/levels/farm.level';await load();if(document.querySelector('#scene').value!=='data/levels/farm.level')return;id=revision;button.disabled=true;}
-  const def=loaded.userData.levelDefinition;if(!def)return;status.textContent='Подготовка генераторов и танков…';if(!debugMode)loading('Подготовка танков и уровня…');
+  const def=loaded.userData.levelDefinition;if(!def)return;status.textContent='Подготовка генераторов и танков…';if(!debugMode)loading('Подготовка танков и уровня…',{progress:.8});
   const prepared=await NativeMissionPreview.prepare(def,definition,json),prototypes=new Map();
   if(!debugMode)prepared.globals={...prepared.globals,...interfaceFlow.globals};
   for(const object of prepared.definitions.values()){
@@ -110,7 +112,7 @@ async function startBattle(){
    if(path&&!prototypes.has(path))prototypes.set(path,await build(await json(path)));
   }
   await Promise.all([loaded,...prototypes.values()].map(model=>audio.prepare(model)));
-  status.textContent='Подготовка графики и эффектов…';if(!debugMode)loading(status.textContent);await warmTextures();await lightPool.warm(renderer,camera,world,prototypes);
+  status.textContent='Подготовка графики и эффектов…';if(!debugMode)loading(status.textContent,{progress:.95});await warmTextures();await lightPool.warm(renderer,camera,world,prototypes);
   if(id!==revision){for(const model of prototypes.values())disposeScene(model);return;}
   const models=new Map();
   const mission=new NativeMissionPreview(prepared,loaded.userData.field,{input:(actor,property)=>debugMode?actor.type==='Player'?input.direction:null:devices.direction(property),fire:(actor,property)=>debugMode?actor.type==='Player'&&fireHeld:devices.fire(property),exitState:actor=>{const model=models.get(actor.id);if(model)animateActor(actor,model);},spawn:actor=>{
@@ -161,6 +163,24 @@ function applyMorph(target,weight){
  if(!morph.owned){const shared=mesh.geometry;mesh.geometry=shared.clone();if(!mesh.userData.sharedGeometry)shared.dispose();morph.owned=true;}
  for(const [name,key,size]of [['position','Positions',3],['normal','Normals',3],['uv','UV0',2]]){const a=morph.base[key],b=morph.target[key];if(!a||!b)continue;if(a.length!==b.length)throw Error('Original morph array sizes differ');const array=mesh.geometry.getAttribute(name)?.array;if(!array)continue;for(let i=0;i<a.length;i++)array[i]=a[i]+(b[i]-a[i])*weight;mesh.geometry.getAttribute(name).needsUpdate=true;}
  mesh.geometry.computeBoundingBox();mesh.geometry.computeBoundingSphere();morph.weight=weight;
+}
+async function prepareLoadingView(){
+ const root=await build(await json('data/loading.scene'));root.scale.x=-1;
+ const scene=new T.Scene();scene.add(root);const pool=new PointLightPool();pool.attach(scene);
+ const camera=new T.PerspectiveCamera();let cameraNode;root.traverse(n=>{if(n.userData.camera)cameraNode=n;});
+ if(!cameraNode)throw Error('Original loading camera is missing');
+ const progressAnimation={presentation:presentation([await json('data/loading_progress.anim')],false)};
+ await Promise.all([...textureCache.values()].map(t=>t.userData.ready));
+ const loader=new T.WebGLRenderer({antialias:true});loader.setClearColor(0);loader.outputColorSpace=T.LinearSRGBColorSpace;loader.setPixelRatio(Math.min(devicePixelRatio,2));loader.domElement.setAttribute('aria-hidden','true');
+ let current=0;
+ const render=value=>{
+  current=Math.max(0,Math.min(1,value));progressAnimation.presentation.elapsed=current;animateActor(progressAnimation,root);
+  root.updateMatrixWorld(true);nativeCamera(cameraNode,camera);pool.update(scene);
+  const width=Math.min(innerWidth,innerHeight*4/3),height=width*3/4;loader.setSize(width,height,false);loader.render(scene,camera);
+ };
+ const resize=()=>render(current);
+ installLoadingView({canvas:loader.domElement,render,dispose(){window.removeEventListener('resize',resize);disposeScene(scene);loader.dispose();loader.forceContextLoss();}});
+ window.addEventListener('resize',resize);
 }
 function findChild(target,name){const direct=target.children.find(n=>n.name===name);if(direct)return direct;for(const child of target.children)if(child.userData.sceneRoot){const found=findChild(child,name);if(found)return found;}return null;}
 renderer.setAnimationLoop(now=>{music.updateMute();if(viewLoading){lastFrame=0;return;}const frameStart=performance.now();let simulationMs=0;const dt=Math.fround(lastFrame?(now-lastFrame)/1000:0);lastFrame=document.hidden?0:now;
@@ -222,10 +242,10 @@ async function displayScreen(screen,{push}){
  loaded.traverse(node=>{if(node.userData.camera&&(!screenCamera||node.name==='Camera'))screenCamera=node;});
  if(!screenCamera)throw Error('Original screen camera is missing: '+screen.path);
  if(def.a.AnimationName)screenAnimation={presentation:presentation([await json(def.a.AnimationName)])};
- loading('Загрузка звуков…');await audio.prepare(loaded);
+ loading('Загрузка звуков…',{progress:.4});await audio.prepare(loaded);
  if(def.a.InterfaceModelName){hudRoot=await build(await json(def.a.InterfaceModelName));hudRoot.scale.x*=-1;hudScene=new T.Scene();hudScene.add(hudRoot);hudRoot.traverse(n=>{if(n.userData.camera)hudCameraNode=n;});if(def.a.InterfaceAnimationName)hudAnimation={presentation:presentation([await json(def.a.InterfaceAnimationName)])};}
  uiControls=new ScreenControls({definition:def,root:hudRoot??loaded,globals:interfaceFlow.globals,read:json,exists:path=>catalog.animations.includes(resourcePath(path))||catalog.scenes.includes(resourcePath(path)),animate:animateActor,activate:c=>interfaceFlow.activate(c),profile,build:async node=>{const model=await build(node);await warmTextures();return model;},overlay,onError:showError});
- loading('Подготовка графики…');await uiControls.prepare();await warmTextures();syncNativeCamera();lightPool.update(world);await renderer.compileAsync(world,camera);uiControls.project(camera,viewport.clientWidth,viewport.clientHeight);
+ loading('Подготовка графики…',{progress:.65});await uiControls.prepare();await warmTextures();syncNativeCamera();lightPool.update(world);await renderer.compileAsync(world,camera);uiControls.project(camera,viewport.clientWidth,viewport.clientHeight);
  if(hudScene){hudRoot.updateMatrixWorld(true);nativeCamera(hudCameraNode,hudCamera);await renderer.compileAsync(hudScene,hudCamera);}
  viewport.style.cursor='none';document.querySelector('#original-cursor').hidden=!def.a.Cursor;
  renderer.domElement.dataset.screen=screen.path;status.textContent='';
@@ -238,7 +258,7 @@ interfaceFlow=new InterfaceFlow({resolve:definition,storage:localStorage,show:di
  await audio.resume(view.pausedAudio);viewport.style.cursor='none';document.querySelector('#original-cursor').hidden=!screen.definition.a.Cursor;
  music.select(screen.definition.a.Music,{resume:true}).catch(reportMusicError);
 },exit:async()=>{
- uiControls?.dispose();uiControls=null;stopPreview();audio.stopAll();music.dispose();for(const old of suspendedScreens)if(old.view)disposeView(old.view);suspendedScreens.length=0;
+ uiControls?.dispose();uiControls=null;stopPreview();audio.stopAll();music.dispose();disposeLoadingView();for(const old of suspendedScreens)if(old.view)disposeView(old.view);suspendedScreens.length=0;
  disposeScene(world);if(hudScene)disposeScene(hudScene);world=new T.Scene();loaded=null;screenCamera=null;screenAnimation=null;activeScreen=null;hudScene=null;hudRoot=null;hudCameraNode=null;hudAnimation=null;
  document.querySelector('#original-cursor').hidden=true;viewport.style.cursor='default';renderer.domElement.dataset.phase='exit';renderer.setAnimationLoop(null);renderer.setClearColor(0);renderer.clear();renderer.dispose();await audio.context?.close();
 }});
@@ -250,9 +270,11 @@ window.addEventListener('keydown',event=>{
 window.addEventListener('keyup',event=>{if(!debugMode&&!interfaceFlow.busy&&uiControls?.key(event))event.preventDefault();},true);
 function reportMusicError(error){if(!music.disposed)showError(error);}
 viewport.addEventListener('pointermove',event=>{const r=viewport.getBoundingClientRect(),cursor=document.querySelector('#original-cursor');cursor.style.left=(event.clientX-r.left)+'px';cursor.style.top=(event.clientY-r.top)+'px';});
-viewport.addEventListener('pointerdown',()=>audio.unlock().catch(showError),{once:true});
-window.addEventListener('keydown',()=>audio.unlock().catch(showError),{once:true});
-loading('Чтение ресурсов…');prepareResources().then(init).then(()=>{if(debugMode)finishLoading();}).catch(showError);
+function reportAudioError(error){console.warn('Audio activation:',error.message);}
+// Retry on trusted interactions, including after focus/background interruptions.
+window.addEventListener('pointerdown',()=>audio.unlock().catch(reportAudioError),true);
+window.addEventListener('keydown',()=>audio.unlock().catch(reportAudioError),true);
+loading('Чтение ресурсов…');prepareResources().then(prepareLoadingView).then(init).then(()=>{if(debugMode)finishLoading();}).catch(showError);
 
 
 

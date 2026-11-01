@@ -1,4 +1,4 @@
-import config from '../asset-config.js';
+import config from '../asset-config.js?v=2f94353fbe10d5bf';
 let bundle=null;
 export async function prepareResources(){
  if(!config.bundle)return;
@@ -11,4 +11,5 @@ export function bundledResource(path){
  if(!(path in bundle))throw Error('Ресурс не найден: '+path);
  return bundle[path];
 }
-export function textureURL(path){return config.textures[path]??'assets/'+path+'.png';}
+export function textureURL(path){return config.textures[path]??assetURL('assets/'+path+'.png');}
+export function assetURL(path){return path+(config.release?'?v='+config.release:'');}

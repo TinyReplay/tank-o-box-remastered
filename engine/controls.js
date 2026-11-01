@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {children,descendants} from './definitions.js';
-import {controlEnabled,applyPassword} from './interface.js';
+import {children,descendants} from './definitions.js?v=2f94353fbe10d5bf';
+import {controlEnabled,applyPassword} from './interface.js?v=2f94353fbe10d5bf';
 
 const duration=clip=>Math.max(0,...descendants(clip,'Key').map(n=>Number(n.a.Time??0)));
 export function presentation(clips,loop=true){return {clips,elapsed:0,duration:Math.max(0,...clips.map(duration)),loop,finished:false};}

@@ -1,4 +1,4 @@
-import {NativeDirectionInput} from './presentation.js';
+import {NativeDirectionInput} from './presentation.js?v=2f94353fbe10d5bf';
 // The two stock selector models reference the arrow/Ctrl and WASD/Tab rows of
 // keys_player.bmp respectively. Keep each device's pressed-direction order.
 const layouts={GC_KeyboardLayout_1:{ArrowUp:0,ArrowRight:1,ArrowDown:2,ArrowLeft:3},GC_KeyboardLayout_2:{KeyW:0,KeyD:1,KeyS:2,KeyA:3}};

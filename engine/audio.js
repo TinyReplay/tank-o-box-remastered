@@ -1,13 +1,15 @@
 // Original imported WAVs driven by animation commands. Spatial attenuation still
 // needs comparison with DirectSound; tracker/XM playback is a separate component.
+import {assetURL} from './resources.js?v=2f94353fbe10d5bf';
 export class GameAudio {
  constructor(){this.context=null;this.buffers=new Map();this.voices=new Map();this.playCount=0;this.pending=new Set();this.versions=new WeakMap();}
- async unlock(){this.context??=new AudioContext();if(this.context.state==='suspended')await this.context.resume();}
+ ensureContext(){return this.context??=new AudioContext();}
+ async unlock(){const context=this.ensureContext();if(context.state==='suspended'||context.state==='interrupted')await context.resume();}
  async prepare(model){
-  this.context??=new AudioContext();
+  this.ensureContext();
   const paths=new Set();model.traverse(node=>{if(node.userData.sound)paths.add(node.userData.sound.Sound.toLowerCase());});
   await Promise.all([...paths].map(path=>{
-   if(!this.buffers.has(path))this.buffers.set(path,fetch('assets/'+path+'.wav').then(r=>{if(!r.ok)throw Error('Sound not found: '+path);return r.arrayBuffer();}).then(b=>this.context.decodeAudioData(b)));
+   if(!this.buffers.has(path))this.buffers.set(path,fetch(assetURL('assets/'+path+'.wav')).then(r=>{if(!r.ok)throw Error('Sound not found: '+path);return r.arrayBuffer();}).then(b=>this.context.decodeAudioData(b)));
    return this.buffers.get(path);
   }));
  }

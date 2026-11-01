@@ -1,4 +1,4 @@
-import {NativeRandom} from './native.js';
+import {NativeRandom} from './native.js?v=2f94353fbe10d5bf';
 
 // MoveBase::direction chooses an axis using a separate RNG (0x4845b0).
 export function nativeDirectionTo(x,y,targetX,targetY,random){

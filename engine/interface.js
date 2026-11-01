@@ -1,4 +1,4 @@
-import {children,properties,scalar} from './definitions.js';
+import {children,properties,scalar} from './definitions.js?v=2f94353fbe10d5bf';
 export const resourcePath=p=>p.replaceAll('\\','/').toLowerCase();
 
 // Data-driven screen/episode navigation. Rendering and paused scene ownership

@@ -1,0 +1,1 @@
+{"tag":"Animation","a":{},"c":[{"tag":"Commands","a":{},"c":[{"tag":"Command","a":{"Target":"explode_smoke_big|SmokePS"},"c":[{"tag":"Execute","a":{"Name":"Emit","Time":"0"},"c":[]}]},{"tag":"Command","a":{"Target":"explode_smoke_big|FirePS"},"c":[{"tag":"Execute","a":{"Name":"Emit","Time":"0"},"c":[]}]}]}]}

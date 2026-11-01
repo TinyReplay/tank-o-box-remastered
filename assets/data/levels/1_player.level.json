@@ -1,0 +1,1 @@
+{"tag":"InterfaceScreenLevelSquare","a":{"InterfaceModelName":"data/Levels/InterfaceLevel.scene","InterfaceAnimationName":"data/Levels/InterfaceLevel.anim","TemplateName":"data/levels/common.level"},"c":[{"tag":"Controls","a":{},"c":[{"tag":"ControlLabel","a":{"PropertyName":"Lives","NodeName":"txtLives"},"c":[]}]}]}

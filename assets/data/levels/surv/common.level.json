@@ -1,0 +1,1 @@
+{"tag":"InterfaceScreenLevelSquare","a":{"TemplateName":"data/levels/common_tutorial.level"},"c":[{"tag":"Controls","a":{},"c":[{"tag":"ControlPlayTime","a":{"KeyName":"HKEY_CURRENT_USER\\Software\\Nice-Games\\Tank-o-box","ValueName":"JoyKeyFFAA","PropertyName":"PlayTime","Time":"3600"},"c":[]}]}]}

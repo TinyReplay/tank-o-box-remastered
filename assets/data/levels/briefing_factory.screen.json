@@ -1,0 +1,1 @@
+{"tag":"InterfaceScreenMenu","a":{"ModelName":"data/Levels/Briefing_factory.scene","Cursor":"data/interface/cursor","AnimationName":"data/Interface/_night.anim","Music":"data/music/menu"},"c":[{"tag":"Controls","a":{},"c":[{"tag":"ControlButton","a":{"KeyboardAlias":"GCMenuSelect","Name":"data/Interface/EmissiveButton_","NodeName":"btnNext","Link":"Next"},"c":[]}]}]}

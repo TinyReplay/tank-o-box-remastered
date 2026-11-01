@@ -1,0 +1,1 @@
+{"tag":"InterfaceScreenMenuScore","a":{"ModelName":"data/Levels/Trial.scene","Cursor":"data/interface/cursor","AnimationName":"data/Interface/_night.anim","Music":"data/music/menu"},"c":[{"tag":"Controls","a":{},"c":[{"tag":"ControlButton","a":{"Name":"data/Interface/EmissiveButton_","NodeName":"btnNext","Link":"data/Interface/HiscoreCooperativeGame.screen"},"c":[]}]}]}

@@ -13,6 +13,7 @@ import {ScreenControls,presentation} from './engine/controls.js';
 import {GameDevices} from './engine/devices.js';
 import {GameMusic} from './engine/music.js';
 import {loading,loaded as finishLoading} from './engine/loading.js';
+import {prepareResources,bundledResource,textureURL} from './engine/resources.js';
 const debugMode=new URLSearchParams(location.search).get('debug')==='1';
 document.body.classList.toggle('debug',debugMode);
 const profile=new LocalProfile(localStorage);
@@ -56,13 +57,14 @@ async function level(path){const def=await definition(path),root=await build(awa
  root.userData.field=field;
  const placements=await Promise.all(objects.map(async(item,i)=>{const p=item.c.find(x=>x.tag==='Position')?.a;if(!p)return null;const object=objectDefs[i],view=object.c.findLast(x=>x.tag==='GameObjectView');if(!view?.a.ModelName)return null;const model=await build(await json(view.a.ModelName)),group=new T.Group();place(group,{x:Number(p.X),y:Number(p.Y),direction:vec(p.Direction,[0,4])[0]},stateMask(object),basis);group.add(model);return group;}));
  for(const o of placements)if(o)root.add(o);root.userData.placements=placements;root.userData.objectCount=placements.filter(Boolean).length;root.userData.levelDefinition=def;return root;}
-async function json(path){path=resourcePath(path);if(!jsonCache.has(path))jsonCache.set(path,fetch('assets/'+path+'.json').then(r=>{if(!r.ok)throw Error('Ресурс не найден: '+path);return r.json();}));return jsonCache.get(path);}
+async function json(path){path=resourcePath(path);const packed=bundledResource(path);if(packed)return packed;if(!jsonCache.has(path))jsonCache.set(path,fetch('assets/'+path+'.json').then(r=>{if(!r.ok)throw Error('Ресурс не найден: '+path);return r.json();}));return jsonCache.get(path);}
 function texture(path){path=path.toLowerCase().replace(/\.bmp$/,'');if(!textureCache.has(path)){
  let ready,failed;const promise=new Promise((resolve,reject)=>{ready=resolve;failed=reject;});
- const tex=new T.TextureLoader().load('assets/'+path+'.png',ready,undefined,()=>failed(Error('Texture not found: '+path)));
+ const tex=new T.TextureLoader().load(textureURL(path),ready,undefined,()=>failed(Error('Texture not found: '+path)));
  tex.userData.ready=promise;tex.colorSpace=T.LinearSRGBColorSpace;tex.wrapS=tex.wrapT=T.RepeatWrapping;textureCache.set(path,tex);
  }return textureCache.get(path);}
-async function warmTextures(){const textures=[...textureCache.values()];await Promise.all(textures.map(t=>t.userData.ready));for(const t of textures)renderer.initTexture(t);}
+const uploadedTextures=new WeakSet();
+async function warmTextures(){const textures=[...textureCache.values()].filter(t=>!uploadedTextures.has(t));await Promise.all(textures.map(t=>t.userData.ready));for(const t of textures){renderer.initTexture(t);uploadedTextures.add(t);}}
 
 function material(shader){const a=shader.c.find(x=>x.tag==='Material')?.a||{},diff=shader.c.find(x=>x.tag==='Diffuse')?.a.Image,em=shader.c.find(x=>x.tag==='Emissive')?.a.Image;
  const m=new T.MeshPhongMaterial({color:new T.Color(...vec(a.Diffuse,em&&!diff?[0,0,0]:[1,1,1])),specular:new T.Color(...vec(a.Specular,[0,0,0])),shininess:Number(a.SpecularPower||30),emissive:new T.Color(...vec(a.Emissive,em?[1,1,1]:[0,0,0])),map:diff?texture(diff):em?texture(em):null,emissiveMap:em?texture(em):null,side:T.DoubleSide,transparent:!!a.Transparency||!!diff||!!em,opacity:1-Number(a.Transparency||0),alphaTest:.015,depthWrite:Number(a.Transparency||0)<.2});m.name=shader.a.Name??'';return m;}
@@ -204,7 +206,8 @@ function captureView(screen){screen.view={world,loaded,movementPreview,uiControl
 function disposeView(view){view.uiControls?.dispose();if(view.movementPreview){view.movementPreview.mission.dispose();for(const p of view.movementPreview.prototypes.values())disposeScene(p);}disposeScene(view.world);if(view.hudScene)disposeScene(view.hudScene);}
 let activeScreen=null;const suspendedScreens=[];
 async function displayScreen(screen,{push}){
- viewLoading=true;loading(screen.path.endsWith('.level')?'Загрузка уровня…':'Загрузка интерфейса…');renderer.domElement.dataset.phase='loading';
+ const loadingStarted=performance.now();
+ viewLoading=true;loading(screen.path.endsWith('.level')?'Загрузка уровня…':'Загрузка интерфейса…',{visible:!activeScreen||screen.path.endsWith('.level')});renderer.domElement.dataset.phase='loading';
  const previous=activeScreen;
  if(push&&previous){captureView(previous);movementPreview=null;suspendedScreens.push(previous);}
  else{
@@ -226,7 +229,7 @@ async function displayScreen(screen,{push}){
  if(hudScene){hudRoot.updateMatrixWorld(true);nativeCamera(hudCameraNode,hudCamera);await renderer.compileAsync(hudScene,hudCamera);}
  viewport.style.cursor='none';document.querySelector('#original-cursor').hidden=!def.a.Cursor;
  renderer.domElement.dataset.screen=screen.path;status.textContent='';
- if(isLevel)await startBattle();music.select(def.a.Music).catch(reportMusicError);viewLoading=false;lastFrame=0;renderer.domElement.dataset.phase=isLevel?'battle':'menu';finishLoading();
+ if(isLevel)await startBattle();music.select(def.a.Music).catch(reportMusicError);viewLoading=false;lastFrame=0;renderer.domElement.dataset.phase=isLevel?'battle':'menu';renderer.domElement.dataset.screenLoad=JSON.stringify({path:screen.path,ms:performance.now()-loadingStarted});finishLoading();
 }
 interfaceFlow=new InterfaceFlow({resolve:definition,storage:localStorage,show:displayScreen,restore:async screen=>{
  uiControls?.dispose();disposeScene(world);if(hudScene)disposeScene(hudScene);const view=screen.view;if(!view)throw Error('Paused screen is missing');
@@ -249,7 +252,7 @@ function reportMusicError(error){if(!music.disposed)showError(error);}
 viewport.addEventListener('pointermove',event=>{const r=viewport.getBoundingClientRect(),cursor=document.querySelector('#original-cursor');cursor.style.left=(event.clientX-r.left)+'px';cursor.style.top=(event.clientY-r.top)+'px';});
 viewport.addEventListener('pointerdown',()=>audio.unlock().catch(showError),{once:true});
 window.addEventListener('keydown',()=>audio.unlock().catch(showError),{once:true});
-loading('Чтение ресурсов…');init().then(()=>{if(debugMode)finishLoading();}).catch(showError);
+loading('Чтение ресурсов…');prepareResources().then(init).then(()=>{if(debugMode)finishLoading();}).catch(showError);
 
 
 

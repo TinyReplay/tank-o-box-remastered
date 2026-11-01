@@ -1,1 +1,0 @@
-{"tag":"GameObjectState","a":{},"c":[{"tag":"EventHandlers","a":{},"c":[{"tag":"EventHandler","a":{},"c":[{"tag":"EventNames","a":{},"c":[{"tag":"EventName","a":{"Name":"BonusShtabArmor"},"c":[]}]},{"tag":"Strategies","a":{},"c":[{"tag":"StrategyChangeCounter","a":{"PropertyName":"BonusArmor","Step":"20"},"c":[]}]}]}]}]}

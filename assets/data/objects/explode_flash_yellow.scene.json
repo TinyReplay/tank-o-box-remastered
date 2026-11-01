@@ -1,1 +1,0 @@
-{"tag":"Scene","a":{},"c":[{"tag":"Light","a":{"Visibility":"true","Name":"point1","Position":"0 2 0","Type":"POINT","Intensity":"0","Attenuation":"QUADRATIC","Diffuse":"1 0.9 0.2","Specular":"1 0.9 0.2"},"c":[]}]}

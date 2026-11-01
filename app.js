@@ -12,6 +12,7 @@ import {InterfaceFlow,LocalProfile,resourcePath} from './engine/interface.js';
 import {ScreenControls,presentation} from './engine/controls.js';
 import {GameDevices} from './engine/devices.js';
 import {GameMusic} from './engine/music.js';
+import {loading,loaded as finishLoading} from './engine/loading.js';
 const debugMode=new URLSearchParams(location.search).get('debug')==='1';
 document.body.classList.toggle('debug',debugMode);
 const profile=new LocalProfile(localStorage);
@@ -99,7 +100,7 @@ async function startBattle(){
  try{
   await audio.unlock();if(id!==revision)return;
   if(debugMode&&!document.querySelector('#scene').value.endsWith('.level')){document.querySelector('#scene').value='data/levels/farm.level';await load();if(document.querySelector('#scene').value!=='data/levels/farm.level')return;id=revision;button.disabled=true;}
-  const def=loaded.userData.levelDefinition;if(!def)return;status.textContent='Подготовка генераторов и танков…';
+  const def=loaded.userData.levelDefinition;if(!def)return;status.textContent='Подготовка генераторов и танков…';if(!debugMode)loading('Подготовка танков и уровня…');
   const prepared=await NativeMissionPreview.prepare(def,definition,json),prototypes=new Map();
   if(!debugMode)prepared.globals={...prepared.globals,...interfaceFlow.globals};
   for(const object of prepared.definitions.values()){
@@ -107,7 +108,7 @@ async function startBattle(){
    if(path&&!prototypes.has(path))prototypes.set(path,await build(await json(path)));
   }
   await Promise.all([loaded,...prototypes.values()].map(model=>audio.prepare(model)));
-  status.textContent='Подготовка графики и эффектов…';await warmTextures();await lightPool.warm(renderer,camera,world,prototypes);
+  status.textContent='Подготовка графики и эффектов…';if(!debugMode)loading(status.textContent);await warmTextures();await lightPool.warm(renderer,camera,world,prototypes);
   if(id!==revision){for(const model of prototypes.values())disposeScene(model);return;}
   const models=new Map();
   const mission=new NativeMissionPreview(prepared,loaded.userData.field,{input:(actor,property)=>debugMode?actor.type==='Player'?input.direction:null:devices.direction(property),fire:(actor,property)=>debugMode?actor.type==='Player'&&fireHeld:devices.fire(property),exitState:actor=>{const model=models.get(actor.id);if(model)animateActor(actor,model);},spawn:actor=>{
@@ -118,7 +119,7 @@ async function startBattle(){
   movementPreview={mission,models,prototypes};
   if(!debugMode){interfaceFlow.globals=mission.world.globals;if(uiControls)uiControls.globals=interfaceFlow.globals;}input.clear();devices.clear();fireHeld=false;lastFrame=0;profiler.reset();
   button.textContent='Остановить проверку';badge.textContent='WASD / стрелки · пробел: огонь · тест боя по оригинальным определениям';status.textContent='Проверка боя';renderer.domElement.focus();
- }catch(error){if(id===revision){document.querySelector('#error').textContent=error.message;console.error(error);}}finally{if(id===revision)button.disabled=false;}
+ }catch(error){if(!debugMode)throw error;if(id===revision){document.querySelector('#error').textContent=error.message;console.error(error);}}finally{if(id===revision)button.disabled=false;}
 }
 document.querySelector('#motion').onclick=startBattle;
 function animateActor(actor,model){
@@ -188,7 +189,7 @@ renderer.setAnimationLoop(now=>{music.updateMute();if(viewLoading){lastFrame=0;r
  if(now-lastProfile>500){renderer.domElement.dataset.profile=JSON.stringify(profiler.summary());renderer.domElement.dataset.music=JSON.stringify(music.snapshot());lastProfile=now;}
 });
 async function init(){const cat=await fetch('assets/catalog.json').then(r=>r.json());catalog=cat;profile.seed(await fetch('assets/ui-defaults.json').then(r=>r.ok?r.json():{}));if(!debugMode){await interfaceFlow.open('data/interface/mainmenu.screen');return;}const select=document.querySelector('#scene'),group=document.createElement('optgroup');group.label='Оригинальные карты';for(const path of cat.definitions.filter(p=>p.endsWith('.level')&&!p.includes('/surv/'))){const data=await json(path);if(data.a.ModelName&&descendants(data,'Object').length){const option=document.createElement('option');option.value=path;option.textContent=descendants(data,'Property').find(p=>p.a.Name==='LevelName')?.a.Value||path.split('/').pop().replace('.level','');group.append(option);}}select.append(group);if(debugMode)await load();else await interfaceFlow.open('data/interface/mainmenu.screen');}
-function showError(error){viewLoading=false;document.querySelector('#error').textContent=error.message;document.body.classList.add('has-error');console.error(error);}
+function showError(error){viewLoading=false;finishLoading();document.querySelector('#error').textContent=error.message;document.body.classList.add('has-error');console.error(error);}
 function syncNativeCamera(){
  if(!screenCamera)return;loaded.updateMatrixWorld(true);
  nativeCamera(screenCamera,camera);
@@ -203,7 +204,7 @@ function captureView(screen){screen.view={world,loaded,movementPreview,uiControl
 function disposeView(view){view.uiControls?.dispose();if(view.movementPreview){view.movementPreview.mission.dispose();for(const p of view.movementPreview.prototypes.values())disposeScene(p);}disposeScene(view.world);if(view.hudScene)disposeScene(view.hudScene);}
 let activeScreen=null;const suspendedScreens=[];
 async function displayScreen(screen,{push}){
- viewLoading=true;renderer.domElement.dataset.phase='loading';
+ viewLoading=true;loading(screen.path.endsWith('.level')?'Загрузка уровня…':'Загрузка интерфейса…');renderer.domElement.dataset.phase='loading';
  const previous=activeScreen;
  if(push&&previous){captureView(previous);movementPreview=null;suspendedScreens.push(previous);}
  else{
@@ -218,14 +219,14 @@ async function displayScreen(screen,{push}){
  loaded.traverse(node=>{if(node.userData.camera&&(!screenCamera||node.name==='Camera'))screenCamera=node;});
  if(!screenCamera)throw Error('Original screen camera is missing: '+screen.path);
  if(def.a.AnimationName)screenAnimation={presentation:presentation([await json(def.a.AnimationName)])};
- await audio.prepare(loaded);
+ loading('Загрузка звуков…');await audio.prepare(loaded);
  if(def.a.InterfaceModelName){hudRoot=await build(await json(def.a.InterfaceModelName));hudRoot.scale.x*=-1;hudScene=new T.Scene();hudScene.add(hudRoot);hudRoot.traverse(n=>{if(n.userData.camera)hudCameraNode=n;});if(def.a.InterfaceAnimationName)hudAnimation={presentation:presentation([await json(def.a.InterfaceAnimationName)])};}
  uiControls=new ScreenControls({definition:def,root:hudRoot??loaded,globals:interfaceFlow.globals,read:json,exists:path=>catalog.animations.includes(resourcePath(path))||catalog.scenes.includes(resourcePath(path)),animate:animateActor,activate:c=>interfaceFlow.activate(c),profile,build:async node=>{const model=await build(node);await warmTextures();return model;},overlay,onError:showError});
- await uiControls.prepare();await warmTextures();syncNativeCamera();lightPool.update(world);await renderer.compileAsync(world,camera);uiControls.project(camera,viewport.clientWidth,viewport.clientHeight);
+ loading('Подготовка графики…');await uiControls.prepare();await warmTextures();syncNativeCamera();lightPool.update(world);await renderer.compileAsync(world,camera);uiControls.project(camera,viewport.clientWidth,viewport.clientHeight);
  if(hudScene){hudRoot.updateMatrixWorld(true);nativeCamera(hudCameraNode,hudCamera);await renderer.compileAsync(hudScene,hudCamera);}
  viewport.style.cursor='none';document.querySelector('#original-cursor').hidden=!def.a.Cursor;
  renderer.domElement.dataset.screen=screen.path;status.textContent='';
- if(isLevel)await startBattle();music.select(def.a.Music).catch(reportMusicError);viewLoading=false;lastFrame=0;renderer.domElement.dataset.phase=isLevel?'battle':'menu';
+ if(isLevel)await startBattle();music.select(def.a.Music).catch(reportMusicError);viewLoading=false;lastFrame=0;renderer.domElement.dataset.phase=isLevel?'battle':'menu';finishLoading();
 }
 interfaceFlow=new InterfaceFlow({resolve:definition,storage:localStorage,show:displayScreen,restore:async screen=>{
  uiControls?.dispose();disposeScene(world);if(hudScene)disposeScene(hudScene);const view=screen.view;if(!view)throw Error('Paused screen is missing');
@@ -248,7 +249,7 @@ function reportMusicError(error){if(!music.disposed)showError(error);}
 viewport.addEventListener('pointermove',event=>{const r=viewport.getBoundingClientRect(),cursor=document.querySelector('#original-cursor');cursor.style.left=(event.clientX-r.left)+'px';cursor.style.top=(event.clientY-r.top)+'px';});
 viewport.addEventListener('pointerdown',()=>audio.unlock().catch(showError),{once:true});
 window.addEventListener('keydown',()=>audio.unlock().catch(showError),{once:true});
-init().catch(showError);
+loading('Чтение ресурсов…');init().then(()=>{if(debugMode)finishLoading();}).catch(showError);
 
 
 

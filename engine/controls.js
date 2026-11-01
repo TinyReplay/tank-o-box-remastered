@@ -22,7 +22,7 @@ export class ScreenControls {
   this.update(0);
  }
  button(item){
-  const button=document.createElement('button');button.className='native-control';button.dataset.node=item.node.name;
+  const button=document.createElement('button');button.hidden=true;button.className='native-control';button.dataset.node=item.node.name;
   button.setAttribute('aria-label',item.node.value||item.node.name);this.overlay.append(button);item.button=button;
   button.onpointerenter=()=>this.select(item);button.onfocus=()=>this.select(item);
   button.onclick=()=>this.click(item).catch(this.onError);

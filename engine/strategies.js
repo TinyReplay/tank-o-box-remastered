@@ -1,5 +1,5 @@
-import {NativeRandom,NativeStateTimer,NativeTimeCounter,counterContains} from './native.js?v=2f94353fbe10d5bf';
-import {children,properties,scalar} from './definitions.js?v=2f94353fbe10d5bf';
+import {NativeRandom,NativeStateTimer,NativeTimeCounter,counterContains} from './native.js?v=e3fb8a7f95a14d79';
+import {children,properties,scalar} from './definitions.js?v=e3fb8a7f95a14d79';
 
 const number=(a,k,d=0)=>a[k]===undefined?d:Number(a[k]);
 const strategies=node=>children(node,'Strategies').flatMap(n=>n.c);
@@ -10,7 +10,8 @@ const int=value=>Number(value)|0;
 // to a host adapter until their collision algorithm is reconstructed and verified.
 export class StrategyWorld {
  constructor({globals={},seed=1,adapter={},traceLimit=2048}={}){this.globals={...globals};this.seed=seed>>>0;this.adapter=adapter;this.actors=[];this.active=[];this.pending=[];this.events=[];this.time=0;this.trace=[];this.traceLimit=traceLimit;this.nextId=1;}
- random(){return new NativeRandom(this.seed++);}
+ // Native Random constructor 0x49f260 accumulates GetTickCount, not adjacent +1 seeds.
+ random(){const tick=(this.seed+Math.trunc(this.time*1000))>>>0;this.randomAccumulator=((this.randomAccumulator??0)+tick)>>>0;return new NativeRandom(this.randomAccumulator);}
  create(definition,{id,x=0,y=0,direction=0,progress=.01,angle=0,divisor=4}={}){
   const actor=new StrategyActor(this,definition,{id:id??this.nextId++,x,y,direction,progress,angle,divisor});
   this.actors.push(actor);this.pending.push(actor);actor.start();return actor;
@@ -85,7 +86,7 @@ export class StrategyActor {
    }
    case 'StrategyChangeState':{
     const probability=a.ProbabilityProperty===undefined?number(a,'Probability',1):Number(g[a.ProbabilityProperty]??0);
-    if(s.rng.next()<probability)return this.changeState(a.StateName);return false;
+    if(s.rng.next()<=probability)return this.changeState(a.StateName);return false;
    }
    case 'StrategyChangeStateByRandomTime':if(s.clock.step(dt))this.changeState(a.StateName);return false;
    case 'StrategyTransmitGlobalCounter':{

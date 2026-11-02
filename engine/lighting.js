@@ -19,6 +19,7 @@ export class PointLightPool {
    const light=this.slots[i],node=this.sources[i];
    if(!node){light.intensity=0;continue;}
    const source=node.userData.pointLight;
+   light.userData.nativeSpecular=source.specular??[0,0,0];
    light.position.setFromMatrixPosition(node.matrixWorld);light.color.fromArray(source.color);light.intensity=source.intensity;
    light.distance=source.distance;light.decay=source.decay;
   }

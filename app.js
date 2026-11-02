@@ -1,19 +1,22 @@
+import {faceBillboards,hideCollectedBonus} from './engine/billboards.js?v=e3fb8a7f95a14d79';
+import {NativePhongMaterial,updateNativeLighting} from './engine/materials.js?v=e3fb8a7f95a14d79';
 import * as T from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {NativeMask,NativeField} from './engine/spatial.js?v=2f94353fbe10d5bf';
-import {DefinitionRepository,children} from './engine/definitions.js?v=2f94353fbe10d5bf';
-import {nativePlacement,NativeDirectionInput,nativeEulerMatrix} from './engine/presentation.js?v=2f94353fbe10d5bf';
-import {NativeMissionPreview,animationTracks,animationCommands} from './engine/mission.js?v=2f94353fbe10d5bf';
-import {GameAudio} from './engine/audio.js?v=2f94353fbe10d5bf';
-import {FrameProfiler} from './engine/profiler.js?v=2f94353fbe10d5bf';
-import {PointLightPool} from './engine/lighting.js?v=2f94353fbe10d5bf';
-import {BitmapText} from './engine/text.js?v=2f94353fbe10d5bf';
-import {InterfaceFlow,LocalProfile,resourcePath} from './engine/interface.js?v=2f94353fbe10d5bf';
-import {ScreenControls,presentation} from './engine/controls.js?v=2f94353fbe10d5bf';
-import {GameDevices} from './engine/devices.js?v=2f94353fbe10d5bf';
-import {GameMusic} from './engine/music.js?v=2f94353fbe10d5bf';
-import {loading,loaded as finishLoading,installLoadingView,disposeLoadingView} from './engine/loading.js?v=2f94353fbe10d5bf';
-import {prepareResources,bundledResource,textureURL} from './engine/resources.js?v=2f94353fbe10d5bf';
+import {NativeMask,NativeField} from './engine/spatial.js?v=e3fb8a7f95a14d79';
+import {DefinitionRepository,children} from './engine/definitions.js?v=e3fb8a7f95a14d79';
+import {nativePlacement,NativeDirectionInput,nativeEulerMatrix} from './engine/presentation.js?v=e3fb8a7f95a14d79';
+import {NativeMissionPreview,animationTracks,animationCommands} from './engine/mission.js?v=e3fb8a7f95a14d79';
+import {GameAudio} from './engine/audio.js?v=e3fb8a7f95a14d79';
+import {FrameProfiler} from './engine/profiler.js?v=e3fb8a7f95a14d79';
+import {PointLightPool} from './engine/lighting.js?v=e3fb8a7f95a14d79';
+import {BitmapText} from './engine/text.js?v=e3fb8a7f95a14d79';
+import {InterfaceFlow,LocalProfile,resourcePath} from './engine/interface.js?v=e3fb8a7f95a14d79';
+import {ScreenControls,presentation} from './engine/controls.js?v=e3fb8a7f95a14d79';
+import {GameDevices} from './engine/devices.js?v=e3fb8a7f95a14d79';
+import {GameMusic} from './engine/music.js?v=e3fb8a7f95a14d79';
+import {loading,loaded as finishLoading,installLoadingView,disposeLoadingView} from './engine/loading.js?v=e3fb8a7f95a14d79';
+import {prepareResources,bundledResource,textureURL} from './engine/resources.js?v=e3fb8a7f95a14d79';
+import {PlayerCamera,adaptedFov} from './engine/camera.js?v=e3fb8a7f95a14d79';
 const debugMode=new URLSearchParams(location.search).get('debug')==='1';
 document.body.classList.toggle('debug',debugMode);
 const profile=new LocalProfile(localStorage);
@@ -67,17 +70,18 @@ const uploadedTextures=new WeakSet();
 async function warmTextures(){const textures=[...textureCache.values()].filter(t=>!uploadedTextures.has(t));await Promise.all(textures.map(t=>t.userData.ready));for(const t of textures){renderer.initTexture(t);uploadedTextures.add(t);}}
 
 function material(shader){const a=shader.c.find(x=>x.tag==='Material')?.a||{},diff=shader.c.find(x=>x.tag==='Diffuse')?.a.Image,em=shader.c.find(x=>x.tag==='Emissive')?.a.Image;
- const m=new T.MeshPhongMaterial({color:new T.Color(...vec(a.Diffuse,em&&!diff?[0,0,0]:[1,1,1])),specular:new T.Color(...vec(a.Specular,[0,0,0])),shininess:Number(a.SpecularPower||30),emissive:new T.Color(...vec(a.Emissive,em?[1,1,1]:[0,0,0])),map:diff?texture(diff):em?texture(em):null,emissiveMap:em?texture(em):null,side:T.DoubleSide,transparent:!!a.Transparency||!!diff||!!em,opacity:1-Number(a.Transparency||0),alphaTest:.015,depthWrite:Number(a.Transparency||0)<.2});m.name=shader.a.Name??'';return m;}
+ const m=new NativePhongMaterial({color:new T.Color(...vec(a.Diffuse,em&&!diff?[0,0,0]:[1,1,1])),specular:new T.Color(...vec(a.Specular,[0,0,0])),shininess:Number(a.SpecularPower||30),emissive:new T.Color(...vec(a.Emissive,em?[1,1,1]:[0,0,0])),map:diff?texture(diff):em?texture(em):null,emissiveMap:em?texture(em):null,side:T.DoubleSide,transparent:!!a.Transparency||!!diff||!!em,opacity:1-Number(a.Transparency||0),alphaTest:.015,depthWrite:Number(a.Transparency||0)<.2});m.name=shader.a.Name??'';return m;}
 const rotationMatrix=new T.Matrix4();
 function rotate(model,angles){model.quaternion.setFromRotationMatrix(rotationMatrix.fromArray(nativeEulerMatrix(angles)));}
 async function build(node,chain=[]){const a=node.a,o=node.tag==='Text'?new BitmapText(await json(a.Font),texture(a.Font.toLowerCase().replace(/_pasw(?=\.font$)/,'').replace(/\.font$/,'')),a):new T.Group();o.name=a.Name||node.tag;o.userData.sceneRoot=node.tag==='Scene';o.visible=a.Visibility!=='false';o.position.fromArray(vec(a.Position));rotate(o,vec(a.Rotation));o.scale.fromArray(vec(a.Scale,[1,1,1]));
  if(node.tag==='Text'){const shader=children(node,'Shader')[0],m=shader&&children(shader,'Material')[0]?.a;if(m){o.textMaterial.color.fromArray(vec(m.Emissive,[1,1,1]));o.textMaterial.opacity=1-Number(m.Transparency??0);}}
  if(node.tag==='CameraPerspective')o.userData.camera=a;
+ if(node.tag==='Billboard')o.userData.billboard=true;
  if(node.tag==='HitNode')o.userData.hit=a;
  if(node.tag==='SoundSource')o.userData.sound=a;
  if(a.Children&&!chain.includes(a.Children.toLowerCase()))o.add(await build(await json(a.Children),[...chain,a.Children.toLowerCase()]));
- if(node.tag.startsWith('Model')&&a.Source){const data=await json(a.Source),g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(data.Positions,3));if(data.Normals)g.setAttribute('normal',new T.Float32BufferAttribute(data.Normals,3));else g.computeVertexNormals();if(data.UV0)g.setAttribute('uv',new T.Float32BufferAttribute(data.UV0,2));const shaders=node.c.find(x=>x.tag==='Shaders')?.c||[];let offset=0;const mats=shaders.map((s,i)=>{const n=Number(s.a.TrianglesCount)*3;g.addGroup(offset,n,i);offset+=n;return material(s);});const mesh=new T.Mesh(g,mats.length?mats:new T.MeshPhongMaterial({color:0xb2b0a4,side:T.DoubleSide}));if(node.tag==='ModelMorph'&&a.Source2)mesh.userData.morph={base:data,target:await json(a.Source2)};o.add(mesh);}
- if(node.tag==='Light'){if(a.Type==='AMBIENT')o.add(new T.AmbientLight(new T.Color(...vec(a.Ambient,[1,1,1])),Number(a.Intensity??1)));else o.userData.pointLight={color:vec(a.Diffuse,[1,1,1]),intensity:Number(a.Intensity??1),distance:0,decay:a.Attenuation==='QUADRATIC'?2:1};}
+ if(node.tag.startsWith('Model')&&a.Source){const data=await json(a.Source),g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(data.Positions,3));if(data.Normals)g.setAttribute('normal',new T.Float32BufferAttribute(data.Normals,3));else g.computeVertexNormals();if(data.UV0)g.setAttribute('uv',new T.Float32BufferAttribute(data.UV0,2));const shaders=node.c.find(x=>x.tag==='Shaders')?.c||[];let offset=0;const mats=shaders.map((s,i)=>{const n=Number(s.a.TrianglesCount)*3;g.addGroup(offset,n,i);offset+=n;return material(s);});const mesh=new T.Mesh(g,mats.length?mats:new NativePhongMaterial({color:0xb2b0a4,side:T.DoubleSide}));if(node.tag==='ModelMorph'&&a.Source2)mesh.userData.morph={base:data,target:await json(a.Source2)};o.add(mesh);}
+ if(node.tag==='Light'){if(a.Type==='DIRECTIONAL'){const light=new T.DirectionalLight(new T.Color(...vec(a.Diffuse,[1,1,1])),Number(a.Intensity??1));const target=new T.Object3D();target.position.z=1;light.target=target;light.userData.nativeSpecular=vec(a.Specular,[0,0,0]);o.add(light,target);}else if(a.Type==='AMBIENT')o.add(new T.AmbientLight(new T.Color(...vec(a.Ambient,[1,1,1])),Number(a.Intensity??1)));else o.userData.pointLight={color:vec(a.Diffuse,[1,1,1]),intensity:Number(a.Intensity??1),specular:vec(a.Specular,[0,0,0]),distance:0,decay:a.Attenuation==='QUADRATIC'?2:1};}
  for(const child of node.c)if(!['Shaders','Shader','Material','Diffuse','Emissive'].includes(child.tag))o.add(await build(child,chain));return o;}
 function reset(){const tank=document.querySelector('#scene').value.includes('/objects/');camera.position.set(...(tank?[6,7,9]:[0,75,44]));camera.fov=tank?38:38;camera.updateProjectionMatrix();controls.target.set(0,tank?.5:0,0);controls.update();}
 function disposeScene(scene){scene.traverse(o=>{o.geometry?.dispose();if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();});}
@@ -115,12 +119,13 @@ async function startBattle(){
   status.textContent='Подготовка графики и эффектов…';if(!debugMode)loading(status.textContent,{progress:.95});await warmTextures();await lightPool.warm(renderer,camera,world,prototypes);
   if(id!==revision){for(const model of prototypes.values())disposeScene(model);return;}
   const models=new Map();
-  const mission=new NativeMissionPreview(prepared,loaded.userData.field,{input:(actor,property)=>debugMode?actor.type==='Player'?input.direction:null:devices.direction(property),fire:(actor,property)=>debugMode?actor.type==='Player'&&fireHeld:devices.fire(property),exitState:actor=>{const model=models.get(actor.id);if(model)animateActor(actor,model);},spawn:actor=>{
+  const mission=new NativeMissionPreview(prepared,loaded.userData.field,{input:(actor,property)=>debugMode?actor.type==='Player'?input.direction:null:devices.direction(property),fire:(actor,property)=>debugMode?actor.type==='Player'&&fireHeld:devices.fire(property),state:(actor,state)=>{if(state.a.Name==='AfterBonus')hideCollectedBonus(models.get(actor.id));},exitState:actor=>{const model=models.get(actor.id);if(model)animateActor(actor,model);},spawn:actor=>{
    if(actor.offField){const model=loaded.getObjectByName(actor.nodeName);if(model)models.set(actor.id,model);}
    else if(actor.staticIndex!==undefined){const model=loaded.userData.placements[actor.staticIndex];if(model)models.set(actor.id,model);}
    else if(actor.modelPath){const model=prototypes.get(actor.modelPath).clone(true);model.userData.previewDynamic=true;model.traverse(o=>{if(o.geometry)o.userData.sharedGeometry=true;if(o.material)o.material=Array.isArray(o.material)?o.material.map(m=>m.clone()):o.material.clone();});models.set(actor.id,model);loaded.add(model);}
   },remove:actor=>{const model=models.get(actor.id);if(model){audio.remove(model);if(model.userData.previewDynamic){loaded.remove(model);disposeMaterials(model);}else model.visible=false;models.delete(actor.id);}}});
-  movementPreview={mission,models,prototypes};
+  const cameraDefinition=prepared.definitions.get('data/objects/level_camera.object');
+  movementPreview={mission,models,prototypes,cameraRig:new PlayerCamera(cameraDefinition?descendants(cameraDefinition,'StrategyCameraAngle')[0]?.a:{})};
   if(!debugMode){interfaceFlow.globals=mission.world.globals;if(uiControls)uiControls.globals=interfaceFlow.globals;}input.clear();devices.clear();fireHeld=false;lastFrame=0;profiler.reset();
   button.textContent='Остановить проверку';badge.textContent='WASD / стрелки · пробел: огонь · тест боя по оригинальным определениям';status.textContent='Проверка боя';renderer.domElement.focus();
  }catch(error){if(!debugMode)throw error;if(id===revision){document.querySelector('#error').textContent=error.message;console.error(error);}}finally{if(id===revision)button.disabled=false;}
@@ -176,7 +181,7 @@ async function prepareLoadingView(){
  const render=value=>{
   current=Math.max(0,Math.min(1,value));progressAnimation.presentation.elapsed=current;animateActor(progressAnimation,root);
   root.updateMatrixWorld(true);nativeCamera(cameraNode,camera);pool.update(scene);
-  const width=Math.min(innerWidth,innerHeight*4/3),height=width*3/4;loader.setSize(width,height,false);loader.render(scene,camera);
+  const width=innerWidth,height=innerHeight;loader.setSize(width,height,false);updateNativeLighting(scene);loader.render(scene,camera);
  };
  const resize=()=>render(current);
  installLoadingView({canvas:loader.domElement,render,dispose(){window.removeEventListener('resize',resize);disposeScene(scene);loader.dispose();loader.forceContextLoss();}});
@@ -203,24 +208,25 @@ renderer.setAnimationLoop(now=>{music.updateMute();if(viewLoading){lastFrame=0;r
  if(!debugMode&&interfaceFlow?.current){
   const screen=interfaceFlow.current;screen.elapsed+=dt;
   if(screenAnimation){screenAnimation.presentation.elapsed+=dt;animateActor(screenAnimation,loaded);}
-  uiControls?.update(dt);syncNativeCamera();if(hudRoot){hudRoot.updateMatrixWorld(true);nativeCamera(hudCameraNode,hudCamera);if(hudAnimation){hudAnimation.presentation.elapsed+=dt;animateActor(hudAnimation,hudRoot);}}uiControls?.project(hudRoot?hudCamera:camera,viewport.clientWidth,viewport.clientHeight);
+  uiControls?.update(dt);syncNativeCamera(dt);if(hudRoot){hudRoot.updateMatrixWorld(true);nativeCamera(hudCameraNode,hudCamera);if(hudAnimation){hudAnimation.presentation.elapsed+=dt;animateActor(hudAnimation,hudRoot);}}uiControls?.project(hudRoot?hudCamera:camera,viewport.clientWidth,viewport.clientHeight);
   const request=movementPreview?.mission.requestedLink;if(request&&!request.handled&&!interfaceFlow.busy){request.handled=true;interfaceFlow.link(request.name).catch(showError);}
  }
- if(debugMode)controls.update();if(lightPool.warming)return;lightPool.attach(world);lightPool.update(world);const renderStart=performance.now();renderer.info.reset();renderer.render(world,camera);if(hudScene){renderer.autoClear=false;renderer.clearDepth();renderer.render(hudScene,hudCamera);renderer.autoClear=true;}const renderMs=performance.now()-renderStart;
+ if(debugMode)controls.update();if(lightPool.warming)return;lightPool.attach(world);lightPool.update(world);const renderStart=performance.now();renderer.info.reset();faceBillboards(world,camera);updateNativeLighting(world);renderer.render(world,camera);if(hudScene){renderer.autoClear=false;renderer.clearDepth();renderer.render(hudScene,hudCamera);renderer.autoClear=true;}const renderMs=performance.now()-renderStart;
  profiler.record({frameMs:performance.now()-frameStart,intervalMs:dt*1000,simulationMs,renderMs,programs:renderer.info.programs.length,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,actors:movementPreview?.mission.world.actors.length??0,models:movementPreview?.models.size??0,voices:audio.voices.size,lights:lightPool.sources.length,lightCapacity:lightPool.capacity});
  if(now-lastProfile>500){renderer.domElement.dataset.profile=JSON.stringify(profiler.summary());renderer.domElement.dataset.music=JSON.stringify(music.snapshot());lastProfile=now;}
 });
 async function init(){const cat=await fetch('assets/catalog.json').then(r=>r.json());catalog=cat;profile.seed(await fetch('assets/ui-defaults.json').then(r=>r.ok?r.json():{}));if(!debugMode){await interfaceFlow.open('data/interface/mainmenu.screen');return;}const select=document.querySelector('#scene'),group=document.createElement('optgroup');group.label='Оригинальные карты';for(const path of cat.definitions.filter(p=>p.endsWith('.level')&&!p.includes('/surv/'))){const data=await json(path);if(data.a.ModelName&&descendants(data,'Object').length){const option=document.createElement('option');option.value=path;option.textContent=descendants(data,'Property').find(p=>p.a.Name==='LevelName')?.a.Value||path.split('/').pop().replace('.level','');group.append(option);}}select.append(group);if(debugMode)await load();else await interfaceFlow.open('data/interface/mainmenu.screen');}
-function showError(error){viewLoading=false;finishLoading();document.querySelector('#error').textContent=error.message;document.body.classList.add('has-error');console.error(error);}
-function syncNativeCamera(){
+function showError(error){viewLoading=false;finishLoading({immediate:true});document.querySelector('#error').textContent=error.message;document.body.classList.add('has-error');console.error(error);}
+function syncNativeCamera(dt=0){
  if(!screenCamera)return;loaded.updateMatrixWorld(true);
  nativeCamera(screenCamera,camera);
+ if(movementPreview?.cameraRig){const p=movementPreview,players=p.mission.tanks.filter(a=>a.type==='Player'&&!a.disposed&&a.stateName!=='Landing'&&p.models.has(a.id));const position=players.length?players.reduce((v,a)=>v.add(p.models.get(a.id).getWorldPosition(new T.Vector3())),new T.Vector3()).divideScalar(players.length):null;p.cameraRig.update(camera,position,dt);}
 }
 function nativeCamera(node,target){
  if(!node)return;const a=node.userData.camera;
  const matrix=node.matrixWorld.clone().multiply(new T.Matrix4().makeScale(1,1,-1));
  matrix.decompose(target.position,target.quaternion,new T.Vector3());target.scale.set(1,1,1);
- target.fov=Number(a.Fov)*180/Math.PI;target.near=Number(a.NearPlane??.5);target.far=Number(a.FarPlane??200);target.aspect=4/3;target.updateProjectionMatrix();target.updateMatrixWorld(true);
+ target.aspect=viewport.clientWidth/viewport.clientHeight;target.fov=adaptedFov(Number(a.Fov),target.aspect)*180/Math.PI;target.near=Number(a.NearPlane??.5);target.far=Number(a.FarPlane??200);target.updateProjectionMatrix();target.updateMatrixWorld(true);
 }
 function captureView(screen){screen.view={world,loaded,movementPreview,uiControls,screenAnimation,screenCamera,hudRoot,hudScene,hudCameraNode,hudAnimation,pausedAudio:audio.pauseAll()};uiControls?.hide();}
 function disposeView(view){view.uiControls?.dispose();if(view.movementPreview){view.movementPreview.mission.dispose();for(const p of view.movementPreview.prototypes.values())disposeScene(p);}disposeScene(view.world);if(view.hudScene)disposeScene(view.hudScene);}
@@ -249,7 +255,7 @@ async function displayScreen(screen,{push}){
  if(hudScene){hudRoot.updateMatrixWorld(true);nativeCamera(hudCameraNode,hudCamera);await renderer.compileAsync(hudScene,hudCamera);}
  viewport.style.cursor='none';document.querySelector('#original-cursor').hidden=!def.a.Cursor;
  renderer.domElement.dataset.screen=screen.path;status.textContent='';
- if(isLevel)await startBattle();music.select(def.a.Music).catch(reportMusicError);viewLoading=false;lastFrame=0;renderer.domElement.dataset.phase=isLevel?'battle':'menu';renderer.domElement.dataset.screenLoad=JSON.stringify({path:screen.path,ms:performance.now()-loadingStarted});finishLoading();
+ if(isLevel)await startBattle();music.select(def.a.Music).catch(reportMusicError);await finishLoading();viewLoading=false;lastFrame=0;renderer.domElement.dataset.phase=isLevel?'battle':'menu';renderer.domElement.dataset.screenLoad=JSON.stringify({path:screen.path,ms:performance.now()-loadingStarted});
 }
 interfaceFlow=new InterfaceFlow({resolve:definition,storage:localStorage,show:displayScreen,restore:async screen=>{
  uiControls?.dispose();disposeScene(world);if(hudScene)disposeScene(hudScene);const view=screen.view;if(!view)throw Error('Paused screen is missing');

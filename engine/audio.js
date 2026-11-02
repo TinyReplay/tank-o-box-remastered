@@ -1,6 +1,10 @@
 // Original imported WAVs driven by animation commands. Spatial attenuation still
 // needs comparison with DirectSound; tracker/XM playback is a separate component.
-import {assetURL} from './resources.js?v=2f94353fbe10d5bf';
+import {assetURL} from './resources.js?v=f12ca5453f00c325';
+export function setAudioPosition(target,position){
+ if(target.positionX&&target.positionY&&target.positionZ){target.positionX.value=position.x;target.positionY.value=position.y;target.positionZ.value=position.z;}
+ else target.setPosition?.(position.x,position.y,position.z);
+}
 export class GameAudio {
  constructor(){this.context=null;this.buffers=new Map();this.voices=new Map();this.playCount=0;this.pending=new Set();this.versions=new WeakMap();}
  ensureContext(){return this.context??=new AudioContext();}
@@ -20,7 +24,7 @@ export class GameAudio {
   const source=context.createBufferSource(),gain=context.createGain(),panner=context.createPanner();
   source.buffer=buffer;source.loop=a.Loop==='true';gain.gain.value=Number(a.Volume??1);if(offset>=buffer.duration){if(source.loop)offset%=buffer.duration;else return;}
   panner.panningModel='equalpower';panner.distanceModel='inverse';panner.refDistance=Number(a.MinDistance??1);panner.maxDistance=10000;panner.rolloffFactor=1;
-  panner.positionX.value=position.x;panner.positionY.value=position.y;panner.positionZ.value=position.z;
+  setAudioPosition(panner,position);
   source.connect(gain);if(a.ChannelType==='3D'){gain.connect(panner);panner.connect(context.destination);}else gain.connect(context.destination);this.voices.set(node,{source,panner,started:context.currentTime,offset});
   source.onended=()=>{if(this.voices.get(node)?.source===source)this.voices.delete(node);source.disconnect();gain.disconnect();panner.disconnect();};
   source.start(0,offset);this.playCount++;
@@ -30,6 +34,6 @@ export class GameAudio {
  stopAll(){for(const node of new Set([...this.voices.keys(),...this.pending]))this.stop(node);}
  pauseAll(){const saved=[...this.voices].map(([node,voice])=>({node,position:node.getWorldPosition(node.position.clone()),offset:voice.offset+this.context.currentTime-voice.started}));this.stopAll();return saved;}
  async resume(saved){await Promise.all((saved??[]).map(v=>this.play(v.node,v.position,v.offset)));}
- updateListener(position){if(!this.context)return;const listener=this.context.listener;listener.positionX.value=position.x;listener.positionY.value=position.y;listener.positionZ.value=position.z;}
- updateSources(){for(const [node,{panner}]of this.voices){const position=node.getWorldPosition(node.position.clone());panner.positionX.value=position.x;panner.positionY.value=position.y;panner.positionZ.value=position.z;}}
+ updateListener(position){if(!this.context)return;setAudioPosition(this.context.listener,position);}
+ updateSources(){for(const [node,{panner}]of this.voices){const position=node.getWorldPosition(node.position.clone());setAudioPosition(panner,position);}}
 }

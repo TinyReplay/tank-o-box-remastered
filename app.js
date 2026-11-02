@@ -1,22 +1,23 @@
-import {faceBillboards,hideCollectedBonus} from './engine/billboards.js?v=e3fb8a7f95a14d79';
-import {NativePhongMaterial,updateNativeLighting} from './engine/materials.js?v=e3fb8a7f95a14d79';
+import {compileReady} from './engine/shader-ready.js?v=f12ca5453f00c325';
+import {faceBillboards,hideCollectedBonus} from './engine/billboards.js?v=f12ca5453f00c325';
+import {NativePhongMaterial,updateNativeLighting} from './engine/materials.js?v=f12ca5453f00c325';
 import * as T from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {NativeMask,NativeField} from './engine/spatial.js?v=e3fb8a7f95a14d79';
-import {DefinitionRepository,children} from './engine/definitions.js?v=e3fb8a7f95a14d79';
-import {nativePlacement,NativeDirectionInput,nativeEulerMatrix} from './engine/presentation.js?v=e3fb8a7f95a14d79';
-import {NativeMissionPreview,animationTracks,animationCommands} from './engine/mission.js?v=e3fb8a7f95a14d79';
-import {GameAudio} from './engine/audio.js?v=e3fb8a7f95a14d79';
-import {FrameProfiler} from './engine/profiler.js?v=e3fb8a7f95a14d79';
-import {PointLightPool} from './engine/lighting.js?v=e3fb8a7f95a14d79';
-import {BitmapText} from './engine/text.js?v=e3fb8a7f95a14d79';
-import {InterfaceFlow,LocalProfile,resourcePath} from './engine/interface.js?v=e3fb8a7f95a14d79';
-import {ScreenControls,presentation} from './engine/controls.js?v=e3fb8a7f95a14d79';
-import {GameDevices} from './engine/devices.js?v=e3fb8a7f95a14d79';
-import {GameMusic} from './engine/music.js?v=e3fb8a7f95a14d79';
-import {loading,loaded as finishLoading,installLoadingView,disposeLoadingView} from './engine/loading.js?v=e3fb8a7f95a14d79';
-import {prepareResources,bundledResource,textureURL} from './engine/resources.js?v=e3fb8a7f95a14d79';
-import {PlayerCamera,adaptedFov} from './engine/camera.js?v=e3fb8a7f95a14d79';
+import {NativeMask,NativeField} from './engine/spatial.js?v=f12ca5453f00c325';
+import {DefinitionRepository,children} from './engine/definitions.js?v=f12ca5453f00c325';
+import {nativePlacement,NativeDirectionInput,nativeEulerMatrix} from './engine/presentation.js?v=f12ca5453f00c325';
+import {NativeMissionPreview,animationTracks,animationCommands} from './engine/mission.js?v=f12ca5453f00c325';
+import {GameAudio} from './engine/audio.js?v=f12ca5453f00c325';
+import {FrameProfiler} from './engine/profiler.js?v=f12ca5453f00c325';
+import {PointLightPool} from './engine/lighting.js?v=f12ca5453f00c325';
+import {BitmapText} from './engine/text.js?v=f12ca5453f00c325';
+import {InterfaceFlow,LocalProfile,resourcePath} from './engine/interface.js?v=f12ca5453f00c325';
+import {ScreenControls,presentation} from './engine/controls.js?v=f12ca5453f00c325';
+import {GameDevices} from './engine/devices.js?v=f12ca5453f00c325';
+import {GameMusic} from './engine/music.js?v=f12ca5453f00c325';
+import {loading,loaded as finishLoading,installLoadingView,disposeLoadingView} from './engine/loading.js?v=f12ca5453f00c325';
+import {prepareResources,bundledResource,textureURL} from './engine/resources.js?v=f12ca5453f00c325';
+import {PlayerCamera,adaptedFov} from './engine/camera.js?v=f12ca5453f00c325';
 const debugMode=new URLSearchParams(location.search).get('debug')==='1';
 document.body.classList.toggle('debug',debugMode);
 const profile=new LocalProfile(localStorage);
@@ -70,7 +71,7 @@ const uploadedTextures=new WeakSet();
 async function warmTextures(){const textures=[...textureCache.values()].filter(t=>!uploadedTextures.has(t));await Promise.all(textures.map(t=>t.userData.ready));for(const t of textures){renderer.initTexture(t);uploadedTextures.add(t);}}
 
 function material(shader){const a=shader.c.find(x=>x.tag==='Material')?.a||{},diff=shader.c.find(x=>x.tag==='Diffuse')?.a.Image,em=shader.c.find(x=>x.tag==='Emissive')?.a.Image;
- const m=new NativePhongMaterial({color:new T.Color(...vec(a.Diffuse,em&&!diff?[0,0,0]:[1,1,1])),specular:new T.Color(...vec(a.Specular,[0,0,0])),shininess:Number(a.SpecularPower||30),emissive:new T.Color(...vec(a.Emissive,em?[1,1,1]:[0,0,0])),map:diff?texture(diff):em?texture(em):null,emissiveMap:em?texture(em):null,side:T.DoubleSide,transparent:!!a.Transparency||!!diff||!!em,opacity:1-Number(a.Transparency||0),alphaTest:.015,depthWrite:Number(a.Transparency||0)<.2});m.name=shader.a.Name??'';return m;}
+ const m=new NativePhongMaterial({color:new T.Color(...vec(a.Diffuse,em&&!diff?[0,0,0]:[1,1,1])),specular:new T.Color(...vec(a.Specular,[0,0,0])),shininess:Number(a.SpecularPower||30),emissive:new T.Color(...vec(a.Emissive,em?[1,1,1]:[0,0,0])),map:diff?texture(diff):em?texture(em):null,emissiveMap:em?texture(em):null,side:T.DoubleSide,transparent:!!a.Transparency||!!diff||!!em,opacity:1-Number(a.Transparency||0),alphaTest:.015,depthWrite:Number(a.Transparency||0)<.2});if(em&&!diff&&/bonus_|scores|data\/textures\/\d+$/.test(em)){m.blending=T.AdditiveBlending;m.depthWrite=false;}m.name=shader.a.Name??'';return m;}
 const rotationMatrix=new T.Matrix4();
 function rotate(model,angles){model.quaternion.setFromRotationMatrix(rotationMatrix.fromArray(nativeEulerMatrix(angles)));}
 async function build(node,chain=[]){const a=node.a,o=node.tag==='Text'?new BitmapText(await json(a.Font),texture(a.Font.toLowerCase().replace(/_pasw(?=\.font$)/,'').replace(/\.font$/,'')),a):new T.Group();o.name=a.Name||node.tag;o.userData.sceneRoot=node.tag==='Scene';o.visible=a.Visibility!=='false';o.position.fromArray(vec(a.Position));rotate(o,vec(a.Rotation));o.scale.fromArray(vec(a.Scale,[1,1,1]));
@@ -115,7 +116,7 @@ async function startBattle(){
    const path=children(object,'GameObjectView').at(-1)?.a.ModelName;
    if(path&&!prototypes.has(path))prototypes.set(path,await build(await json(path)));
   }
-  await Promise.all([loaded,...prototypes.values()].map(model=>audio.prepare(model)));
+  Promise.all([loaded,...prototypes.values()].map(model=>audio.prepare(model))).catch(reportAudioError);
   status.textContent='Подготовка графики и эффектов…';if(!debugMode)loading(status.textContent,{progress:.95});await warmTextures();await lightPool.warm(renderer,camera,world,prototypes);
   if(id!==revision){for(const model of prototypes.values())disposeScene(model);return;}
   const models=new Map();
@@ -204,7 +205,7 @@ renderer.setAnimationLoop(now=>{music.updateMute();if(viewLoading){lastFrame=0;r
   const g=p.mission.world.globals,stats=document.querySelector('#combat-stats'),summary=`Счёт: ${g.Score??0} · Жизни: ${g.Lives??0} · HP: ${g.HitPoints??0}/${g.HitPointsMax??0} · Враги: ${g.TankCountEnemy??0}`;stats.hidden=false;if(stats.textContent!==summary)stats.textContent=summary;
   if(g.MissionStatus&&status.textContent!==g.MissionStatus)status.textContent=g.MissionStatus;
   renderer.domElement.dataset.frameSeconds=String(dt);
- }catch(error){document.querySelector('#error').textContent=error.message;console.error(error);stopPreview();}}
+ }catch(error){stopPreview();showError(error);}}
  if(!debugMode&&interfaceFlow?.current){
   const screen=interfaceFlow.current;screen.elapsed+=dt;
   if(screenAnimation){screenAnimation.presentation.elapsed+=dt;animateActor(screenAnimation,loaded);}
@@ -248,11 +249,11 @@ async function displayScreen(screen,{push}){
  loaded.traverse(node=>{if(node.userData.camera&&(!screenCamera||node.name==='Camera'))screenCamera=node;});
  if(!screenCamera)throw Error('Original screen camera is missing: '+screen.path);
  if(def.a.AnimationName)screenAnimation={presentation:presentation([await json(def.a.AnimationName)])};
- loading('Загрузка звуков…',{progress:.4});await audio.prepare(loaded);
+ loading('Загрузка звуков…',{progress:.4});audio.prepare(loaded).catch(reportAudioError);
  if(def.a.InterfaceModelName){hudRoot=await build(await json(def.a.InterfaceModelName));hudRoot.scale.x*=-1;hudScene=new T.Scene();hudScene.add(hudRoot);hudRoot.traverse(n=>{if(n.userData.camera)hudCameraNode=n;});if(def.a.InterfaceAnimationName)hudAnimation={presentation:presentation([await json(def.a.InterfaceAnimationName)])};}
  uiControls=new ScreenControls({definition:def,root:hudRoot??loaded,globals:interfaceFlow.globals,read:json,exists:path=>catalog.animations.includes(resourcePath(path))||catalog.scenes.includes(resourcePath(path)),animate:animateActor,activate:c=>interfaceFlow.activate(c),profile,build:async node=>{const model=await build(node);await warmTextures();return model;},overlay,onError:showError});
- loading('Подготовка графики…',{progress:.65});await uiControls.prepare();await warmTextures();syncNativeCamera();lightPool.update(world);await renderer.compileAsync(world,camera);uiControls.project(camera,viewport.clientWidth,viewport.clientHeight);
- if(hudScene){hudRoot.updateMatrixWorld(true);nativeCamera(hudCameraNode,hudCamera);await renderer.compileAsync(hudScene,hudCamera);}
+ loading('Подготовка графики…',{progress:.65});await uiControls.prepare();await warmTextures();syncNativeCamera();lightPool.update(world);await compileReady(renderer,world,camera);uiControls.project(camera,viewport.clientWidth,viewport.clientHeight);
+ if(hudScene){hudRoot.updateMatrixWorld(true);nativeCamera(hudCameraNode,hudCamera);await compileReady(renderer,hudScene,hudCamera);}
  viewport.style.cursor='none';document.querySelector('#original-cursor').hidden=!def.a.Cursor;
  renderer.domElement.dataset.screen=screen.path;status.textContent='';
  if(isLevel)await startBattle();music.select(def.a.Music).catch(reportMusicError);await finishLoading();viewLoading=false;lastFrame=0;renderer.domElement.dataset.phase=isLevel?'battle':'menu';renderer.domElement.dataset.screenLoad=JSON.stringify({path:screen.path,ms:performance.now()-loadingStarted});

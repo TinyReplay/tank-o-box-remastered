@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {compileReady} from './shader-ready.js?v=f12ca5453f00c325';
 
 // Reuse light slots so spawning a zero-intensity muzzle/explosion light does not
 // change NUM_POINT_LIGHTS and synchronously rebuild every material shader.
@@ -34,10 +35,10 @@ export class PointLightPool {
   try{
    for(const capacity of [4,8,16,32,64]){
     this.setCapacity(capacity);
-    await renderer.compileAsync(scene,camera);
-    await renderer.compileAsync(staging,camera,scene);
+    if(!await compileReady(renderer,scene,camera))break;
+    if(!await compileReady(renderer,staging,camera,scene))break;
     for(const m of materials)m.transparent=true;
-    await renderer.compileAsync(staging,camera,scene);
+    if(!await compileReady(renderer,staging,camera,scene))break;
     for(const [m,transparent]of original)m.transparent=transparent;
    }
   }finally{for(const [m,transparent]of original)m.transparent=transparent;this.warming=false;this.update(scene);}

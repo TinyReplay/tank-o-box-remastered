@@ -31,6 +31,7 @@ export function nativePhongShader(shader){
    'directLight.nativeSpecular * material.specularColor * pow(saturate(dot(geometryNormal, normalize(directLight.direction + geometryViewDir))), material.specularShininess) * step(0.00001, dotNL) * material.specularStrength'));
  shader.fragmentShader=shader.fragmentShader.replace('reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + reflectedLight.directSpecular',
   'clamp(reflectedLight.directDiffuse + reflectedLight.indirectDiffuse, 0.0, 1.0) * diffuseColor.rgb + reflectedLight.directSpecular');
+ shader.fragmentShader=shader.fragmentShader.replace(' + reflectedLight.directSpecular + reflectedLight.indirectSpecular + totalEmissiveRadiance',' + clamp(reflectedLight.directSpecular + reflectedLight.indirectSpecular, 0.0, 1.0) + totalEmissiveRadiance');
 }
 export class NativePhongMaterial extends T.MeshPhongMaterial {
  constructor(options){super(options);this.onBeforeCompile=nativePhongShader;}

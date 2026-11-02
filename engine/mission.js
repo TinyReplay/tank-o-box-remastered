@@ -1,8 +1,8 @@
-import {children,descendants,properties,values} from './definitions.js?v=2f94353fbe10d5bf';
-import {StrategyWorld} from './strategies.js?v=2f94353fbe10d5bf';
-import {NativeMask,firePositions,collisionEvents} from './spatial.js?v=2f94353fbe10d5bf';
-import {NativeGridMotion,NativeFireClock,NativeTimedFire} from './native.js?v=2f94353fbe10d5bf';
-import {NativeEnemyAI} from './ai.js?v=2f94353fbe10d5bf';
+import {children,descendants,properties,values} from './definitions.js?v=8e2e13ad4d065ad7';
+import {StrategyWorld} from './strategies.js?v=8e2e13ad4d065ad7';
+import {NativeMask,firePositions,collisionEvents} from './spatial.js?v=8e2e13ad4d065ad7';
+import {NativeGridMotion,NativeFireClock,NativeTimedFire} from './native.js?v=8e2e13ad4d065ad7';
+import {NativeEnemyAI} from './ai.js?v=8e2e13ad4d065ad7';
 
 const strategies=n=>children(n,'Strategies').flatMap(n=>n.c);
 const normalize=p=>p.replaceAll('\\','/').toLowerCase();
@@ -65,7 +65,7 @@ export class NativeMissionPreview {
     const views=stateViews(definition),clips=views.flatMap(v=>values(v.a,'AnimationName').map(p=>prepared.animations.get(normalize(p))));
     const duration=Math.max(0,...clips.flatMap(c=>[...descendants(c,'Key'),...descendants(c,'Execute')].map(k=>Number(k.a.Time??0))));
     actor.presentation={clips,elapsed:0,duration,loop:views.at(-1)?.a.Loop!=='false',finished:false};
-    this.onState(actor);
+    this.onState(actor,definition);
    },
    afterStep:(actor,dt)=>{
     const p=actor.presentation;if(!p||p.finished)return;p.elapsed=Math.fround(p.elapsed+dt);

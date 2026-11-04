@@ -1,23 +1,24 @@
-import {compileReady} from './engine/shader-ready.js?v=f12ca5453f00c325';
-import {faceBillboards,hideCollectedBonus} from './engine/billboards.js?v=f12ca5453f00c325';
-import {NativePhongMaterial,updateNativeLighting} from './engine/materials.js?v=f12ca5453f00c325';
+import {NativeParticles} from './engine/particles.js?v=9ef16e164bdfaa42';
+import {compileReady} from './engine/shader-ready.js?v=9ef16e164bdfaa42';
+import {faceBillboards,hideCollectedBonus} from './engine/billboards.js?v=9ef16e164bdfaa42';
+import {NativePhongMaterial,updateNativeLighting,setNativeTransparency} from './engine/materials.js?v=9ef16e164bdfaa42';
 import * as T from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
-import {NativeMask,NativeField} from './engine/spatial.js?v=f12ca5453f00c325';
-import {DefinitionRepository,children} from './engine/definitions.js?v=f12ca5453f00c325';
-import {nativePlacement,NativeDirectionInput,nativeEulerMatrix} from './engine/presentation.js?v=f12ca5453f00c325';
-import {NativeMissionPreview,animationTracks,animationCommands} from './engine/mission.js?v=f12ca5453f00c325';
-import {GameAudio} from './engine/audio.js?v=f12ca5453f00c325';
-import {FrameProfiler} from './engine/profiler.js?v=f12ca5453f00c325';
-import {PointLightPool} from './engine/lighting.js?v=f12ca5453f00c325';
-import {BitmapText} from './engine/text.js?v=f12ca5453f00c325';
-import {InterfaceFlow,LocalProfile,resourcePath} from './engine/interface.js?v=f12ca5453f00c325';
-import {ScreenControls,presentation} from './engine/controls.js?v=f12ca5453f00c325';
-import {GameDevices} from './engine/devices.js?v=f12ca5453f00c325';
-import {GameMusic} from './engine/music.js?v=f12ca5453f00c325';
-import {loading,loaded as finishLoading,installLoadingView,disposeLoadingView} from './engine/loading.js?v=f12ca5453f00c325';
-import {prepareResources,bundledResource,textureURL} from './engine/resources.js?v=f12ca5453f00c325';
-import {PlayerCamera,adaptedFov} from './engine/camera.js?v=f12ca5453f00c325';
+import {NativeMask,NativeField} from './engine/spatial.js?v=9ef16e164bdfaa42';
+import {DefinitionRepository,children} from './engine/definitions.js?v=9ef16e164bdfaa42';
+import {nativePlacement,NativeDirectionInput,nativeEulerMatrix} from './engine/presentation.js?v=9ef16e164bdfaa42';
+import {NativeMissionPreview,animationTracks,animationCommands} from './engine/mission.js?v=9ef16e164bdfaa42';
+import {GameAudio} from './engine/audio.js?v=9ef16e164bdfaa42';
+import {FrameProfiler} from './engine/profiler.js?v=9ef16e164bdfaa42';
+import {PointLightPool} from './engine/lighting.js?v=9ef16e164bdfaa42';
+import {BitmapText} from './engine/text.js?v=9ef16e164bdfaa42';
+import {InterfaceFlow,LocalProfile,resourcePath} from './engine/interface.js?v=9ef16e164bdfaa42';
+import {ScreenControls,presentation} from './engine/controls.js?v=9ef16e164bdfaa42';
+import {GameDevices} from './engine/devices.js?v=9ef16e164bdfaa42';
+import {GameMusic} from './engine/music.js?v=9ef16e164bdfaa42';
+import {loading,loaded as finishLoading,installLoadingView,disposeLoadingView} from './engine/loading.js?v=9ef16e164bdfaa42';
+import {prepareResources,bundledResource,textureURL} from './engine/resources.js?v=9ef16e164bdfaa42';
+import {PlayerCamera,adaptedFov} from './engine/camera.js?v=9ef16e164bdfaa42';
 const debugMode=new URLSearchParams(location.search).get('debug')==='1';
 document.body.classList.toggle('debug',debugMode);
 const profile=new LocalProfile(localStorage);
@@ -27,6 +28,7 @@ let hudRoot=null,hudScene=null,hudCameraNode=null,hudAnimation=null;
 const hudCamera=new T.PerspectiveCamera();
 const overlay=document.querySelector('#native-ui');
 const lightPool=new PointLightPool();
+const particles=new NativeParticles(texture);
 const profiler=new FrameProfiler();let lastProfile=0;
 const audio=new GameAudio();
 const music=new GameMusic(()=>audio.context,{muted:()=>profile.data.settings.MusicMute===true});
@@ -71,11 +73,12 @@ const uploadedTextures=new WeakSet();
 async function warmTextures(){const textures=[...textureCache.values()].filter(t=>!uploadedTextures.has(t));await Promise.all(textures.map(t=>t.userData.ready));for(const t of textures){renderer.initTexture(t);uploadedTextures.add(t);}}
 
 function material(shader){const a=shader.c.find(x=>x.tag==='Material')?.a||{},diff=shader.c.find(x=>x.tag==='Diffuse')?.a.Image,em=shader.c.find(x=>x.tag==='Emissive')?.a.Image;
- const m=new NativePhongMaterial({color:new T.Color(...vec(a.Diffuse,em&&!diff?[0,0,0]:[1,1,1])),specular:new T.Color(...vec(a.Specular,[0,0,0])),shininess:Number(a.SpecularPower||30),emissive:new T.Color(...vec(a.Emissive,em?[1,1,1]:[0,0,0])),map:diff?texture(diff):em?texture(em):null,emissiveMap:em?texture(em):null,side:T.DoubleSide,transparent:!!a.Transparency||!!diff||!!em,opacity:1-Number(a.Transparency||0),alphaTest:.015,depthWrite:Number(a.Transparency||0)<.2});if(em&&!diff&&/bonus_|scores|data\/textures\/\d+$/.test(em)){m.blending=T.AdditiveBlending;m.depthWrite=false;}m.name=shader.a.Name??'';return m;}
+ const m=new NativePhongMaterial({color:new T.Color(...vec(a.Diffuse,em&&!diff?[0,0,0]:[1,1,1])),specular:new T.Color(...vec(a.Specular,[0,0,0])),shininess:Number(a.SpecularPower||30),emissive:new T.Color(...vec(a.Emissive,em?[1,1,1]:[0,0,0])),map:diff?texture(diff):em?texture(em):null,emissiveMap:em?texture(em):null,side:T.DoubleSide,transparent:!!a.Transparency||!!diff||!!em,opacity:1-Number(a.Transparency||0),alphaTest:.015,depthWrite:Number(a.Transparency||0)<.2});if(em&&!diff&&/bonus_|scores|data\/textures\/\d+$/.test(em)){m.blending=T.AdditiveBlending;m.userData.nativeGlow=true;}setNativeTransparency(m,Number(a.Transparency??0));m.name=shader.a.Name??'';return m;}
 const rotationMatrix=new T.Matrix4();
 function rotate(model,angles){model.quaternion.setFromRotationMatrix(rotationMatrix.fromArray(nativeEulerMatrix(angles)));}
 async function build(node,chain=[]){const a=node.a,o=node.tag==='Text'?new BitmapText(await json(a.Font),texture(a.Font.toLowerCase().replace(/_pasw(?=\.font$)/,'').replace(/\.font$/,'')),a):new T.Group();o.name=a.Name||node.tag;o.userData.sceneRoot=node.tag==='Scene';o.visible=a.Visibility!=='false';o.position.fromArray(vec(a.Position));rotate(o,vec(a.Rotation));o.scale.fromArray(vec(a.Scale,[1,1,1]));
  if(node.tag==='Text'){const shader=children(node,'Shader')[0],m=shader&&children(shader,'Material')[0]?.a;if(m){o.textMaterial.color.fromArray(vec(m.Emissive,[1,1,1]));o.textMaterial.opacity=1-Number(m.Transparency??0);}}
+ if(node.tag==='ParticleSystem'){const shader=children(node,'Shader')[0],image=shader?.c.find(n=>n.tag==='Emissive'||n.tag==='Diffuse')?.a.Image;if(image){texture(image);o.userData.particles={attributes:{...a},source:await json(a.Source),texture:image,additive:!shader.c.some(n=>n.tag==='Diffuse')&&!/smoke|dust/i.test(image)};}}
  if(node.tag==='CameraPerspective')o.userData.camera=a;
  if(node.tag==='Billboard')o.userData.billboard=true;
  if(node.tag==='HitNode')o.userData.hit=a;
@@ -123,7 +126,7 @@ async function startBattle(){
   const mission=new NativeMissionPreview(prepared,loaded.userData.field,{input:(actor,property)=>debugMode?actor.type==='Player'?input.direction:null:devices.direction(property),fire:(actor,property)=>debugMode?actor.type==='Player'&&fireHeld:devices.fire(property),state:(actor,state)=>{if(state.a.Name==='AfterBonus')hideCollectedBonus(models.get(actor.id));},exitState:actor=>{const model=models.get(actor.id);if(model)animateActor(actor,model);},spawn:actor=>{
    if(actor.offField){const model=loaded.getObjectByName(actor.nodeName);if(model)models.set(actor.id,model);}
    else if(actor.staticIndex!==undefined){const model=loaded.userData.placements[actor.staticIndex];if(model)models.set(actor.id,model);}
-   else if(actor.modelPath){const model=prototypes.get(actor.modelPath).clone(true);model.userData.previewDynamic=true;model.traverse(o=>{if(o.geometry)o.userData.sharedGeometry=true;if(o.material)o.material=Array.isArray(o.material)?o.material.map(m=>m.clone()):o.material.clone();});models.set(actor.id,model);loaded.add(model);}
+   else if(actor.modelPath){const model=prototypes.get(actor.modelPath).clone(true);model.userData.previewDynamic=true;const emitters=[];prototypes.get(actor.modelPath).traverse(n=>{if(n.userData.particles)emitters.push(n.userData.particles);});let emitterIndex=0;model.traverse(n=>{if(n.userData.particles)n.userData.particles={...emitters[emitterIndex],attributes:{...emitters[emitterIndex++].attributes}};});model.traverse(o=>{if(o.geometry)o.userData.sharedGeometry=true;if(o.material)o.material=Array.isArray(o.material)?o.material.map(m=>m.clone()):o.material.clone();});models.set(actor.id,model);loaded.add(model);}
   },remove:actor=>{const model=models.get(actor.id);if(model){audio.remove(model);if(model.userData.previewDynamic){loaded.remove(model);disposeMaterials(model);}else model.visible=false;models.delete(actor.id);}}});
   const cameraDefinition=prepared.definitions.get('data/objects/level_camera.object');
   movementPreview={mission,models,prototypes,cameraRig:new PlayerCamera(cameraDefinition?descendants(cameraDefinition,'StrategyCameraAngle')[0]?.a:{})};
@@ -148,7 +151,8 @@ function animateActor(actor,model){
    target=findChild(target,name);if(!target)break;
   }
   if(!target)continue;
-  if(target.isMaterial){if(track.param==='Emissive'&&target.isMeshBasicMaterial){target.color.fromArray(track.value);}else if(track.param==='Transparency'){target.opacity=1-track.value[0];target.transparent=true;target.depthWrite=target.opacity>=.999;}else if(track.param==='Diffuse')target.color.fromArray(track.value);else if(track.param==='Emissive')target.emissive.fromArray(track.value);}
+  if(target.isMaterial){if(track.param==='Emissive'&&target.isMeshBasicMaterial){target.color.fromArray(track.value);}else if(track.param==='Transparency'){setNativeTransparency(target,track.value[0]);}else if(track.param==='Diffuse')target.color.fromArray(track.value);else if(track.param==='Emissive')target.emissive.fromArray(track.value);}
+  else if(target.userData?.particles&&track.param in target.userData.particles.attributes)target.userData.particles.attributes[track.param]=track.value.join(' ');
   else if(track.param==='Text')target.setText?.(track.value);
   else if(track.param==='MorphWeight')applyMorph(target,track.value[0]);
   else if(track.param==='Position')target.position.fromArray(track.value);
@@ -160,6 +164,7 @@ function animateActor(actor,model){
  const previous=p.commandTime??-Number.EPSILON;
  for(const command of animationCommands(p.clips,previous,p.elapsed,p.duration,p.loop)){
   let target=model;for(const name of command.target.split('|')){target=findChild(target,name);if(!target)break;}
+  if(target?.userData.particles&&command.name==='Emit')particles.emit(world,target);
   if(target?.userData.sound){if(command.name==='Play')audio.play(target,target.getWorldPosition(new T.Vector3())).catch(error=>{document.querySelector('#error').textContent=error.message;});else if(command.name==='Stop')audio.stop(target);}
  }
  p.commandTime=p.elapsed;
@@ -212,7 +217,7 @@ renderer.setAnimationLoop(now=>{music.updateMute();if(viewLoading){lastFrame=0;r
   uiControls?.update(dt);syncNativeCamera(dt);if(hudRoot){hudRoot.updateMatrixWorld(true);nativeCamera(hudCameraNode,hudCamera);if(hudAnimation){hudAnimation.presentation.elapsed+=dt;animateActor(hudAnimation,hudRoot);}}uiControls?.project(hudRoot?hudCamera:camera,viewport.clientWidth,viewport.clientHeight);
   const request=movementPreview?.mission.requestedLink;if(request&&!request.handled&&!interfaceFlow.busy){request.handled=true;interfaceFlow.link(request.name).catch(showError);}
  }
- if(debugMode)controls.update();if(lightPool.warming)return;lightPool.attach(world);lightPool.update(world);const renderStart=performance.now();renderer.info.reset();faceBillboards(world,camera);updateNativeLighting(world);renderer.render(world,camera);if(hudScene){renderer.autoClear=false;renderer.clearDepth();renderer.render(hudScene,hudCamera);renderer.autoClear=true;}const renderMs=performance.now()-renderStart;
+ if(debugMode)controls.update();if(lightPool.warming)return;lightPool.attach(world);lightPool.update(world);const renderStart=performance.now();renderer.info.reset();faceBillboards(world,camera);renderer.domElement.dataset.particles=String(particles.update(world,document.hidden?0:dt,camera,renderer.domElement.height)??0);updateNativeLighting(world);renderer.render(world,camera);if(hudScene){renderer.autoClear=false;renderer.clearDepth();renderer.render(hudScene,hudCamera);renderer.autoClear=true;}const renderMs=performance.now()-renderStart;
  profiler.record({frameMs:performance.now()-frameStart,intervalMs:dt*1000,simulationMs,renderMs,programs:renderer.info.programs.length,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,actors:movementPreview?.mission.world.actors.length??0,models:movementPreview?.models.size??0,voices:audio.voices.size,lights:lightPool.sources.length,lightCapacity:lightPool.capacity});
  if(now-lastProfile>500){renderer.domElement.dataset.profile=JSON.stringify(profiler.summary());renderer.domElement.dataset.music=JSON.stringify(music.snapshot());lastProfile=now;}
 });
@@ -235,6 +240,7 @@ let activeScreen=null;const suspendedScreens=[];
 async function displayScreen(screen,{push}){
  const loadingStarted=performance.now();
  viewLoading=true;loading(screen.path.endsWith('.level')?'Загрузка уровня…':'Загрузка интерфейса…',{visible:!activeScreen||screen.path.endsWith('.level')});renderer.domElement.dataset.phase='loading';
+ 
  const previous=activeScreen;
  if(push&&previous){captureView(previous);movementPreview=null;suspendedScreens.push(previous);}
  else{

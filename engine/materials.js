@@ -1,4 +1,11 @@
 import * as T from 'three';
+export function setNativeTransparency(material,transparency=0){
+ material.opacity=1-Number(transparency);
+ const glow=material.userData.nativeGlow===true;
+ // 0.001 is the stock near-opaque placeholder on many scene materials.
+ material.transparent=glow||material.opacity<.999-1e-7;
+ material.depthWrite=!material.transparent;
+}
 const points={value:[]},directions={value:[]};
 // D3D fixed-function colours are saturated BEFORE texture modulation. Phong's
 // physically-normalized Lambert/Fresnel terms do not describe that pipeline.
